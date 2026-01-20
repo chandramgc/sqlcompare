@@ -4,6 +4,7 @@ import streamlit as st
 
 from sql_diff_ui.diff_engine import compare_sql
 from sql_diff_ui.models import Severity
+from sql_diff_ui.sql_validator import SQLValidator
 
 # Page config
 st.set_page_config(
@@ -96,19 +97,69 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
     if not sql_a.strip() or not sql_b.strip():
         st.error("⚠️ Please provide both SQL queries to compare.")
     else:
-        with st.spinner("Comparing SQL queries..."):
-            result = compare_sql(
-                sql_a=sql_a,
-                sql_b=sql_b,
-                normalize=normalize_sql,
-                ignore_whitespace=ignore_whitespace,
-                case_insensitive_keywords=case_insensitive,
-                semantic_diff=semantic_diff,
-                dialect=dialect,
-            )
+        # Create validator
+        validator = SQLValidator(dialect=dialect)
 
-            # Store result in session state
-            st.session_state["comparison_result"] = result
+        # Validate and beautify SQL A
+        with st.spinner("Validating SQL A..."):
+            is_valid_a, beautified_a, errors_a = validator.validate_and_beautify(sql_a)
+
+        # Validate and beautify SQL B
+        with st.spinner("Validating SQL B..."):
+            is_valid_b, beautified_b, errors_b = validator.validate_and_beautify(sql_b)
+
+        # Display validation results
+        validation_col1, validation_col2 = st.columns(2)
+
+        with validation_col1:
+            if is_valid_a:
+                st.success("✅ SQL A is valid")
+            else:
+                st.error("❌ SQL A has validation errors:")
+                for error in errors_a:
+                    st.error(f"  • {error}")
+
+        with validation_col2:
+            if is_valid_b:
+                st.success("✅ SQL B is valid")
+            else:
+                st.error("❌ SQL B has validation errors:")
+                for error in errors_b:
+                    st.error(f"  • {error}")
+
+        # Only proceed with comparison if both queries are valid
+        if is_valid_a and is_valid_b:
+            # Show beautified SQL
+            with st.expander("🎨 View Beautified SQL", expanded=False):
+                beautify_col1, beautify_col2 = st.columns(2)
+
+                with beautify_col1:
+                    st.markdown("**Beautified SQL A**")
+                    st.code(beautified_a, language="sql")
+
+                with beautify_col2:
+                    st.markdown("**Beautified SQL B**")
+                    st.code(beautified_b, language="sql")
+
+            with st.spinner("Comparing SQL queries..."):
+                # Use beautified SQL for comparison
+                result = compare_sql(
+                    sql_a=beautified_a,
+                    sql_b=beautified_b,
+                    normalize=normalize_sql,
+                    ignore_whitespace=ignore_whitespace,
+                    case_insensitive_keywords=case_insensitive,
+                    semantic_diff=semantic_diff,
+                    dialect=dialect,
+                )
+
+                # Store result in session state
+                st.session_state["comparison_result"] = result
+        else:
+            st.warning("⚠️ Cannot compare SQL queries with validation errors. Please fix the errors above and try again.")
+            # Clear previous comparison results
+            if "comparison_result" in st.session_state:
+                del st.session_state["comparison_result"]
 
 # Display results if available
 if "comparison_result" in st.session_state:

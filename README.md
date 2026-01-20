@@ -4,6 +4,8 @@ A polished, local Python app for comparing SQL queries with semantic analysis. B
 
 ## Features
 
+- ✅ **SQL Validation**: Validates SQL syntax before comparison with clear error messages
+- 🎨 **SQL Beautification**: Automatically formats and beautifies SQL queries
 - 🔍 **Text Diff**: Side-by-side unified diff with color-coded additions/removals
 - 🧠 **Semantic Diff**: AST-based analysis that detects structural changes:
   - SELECT column additions/removals/renames
@@ -12,10 +14,21 @@ A polished, local Python app for comparing SQL queries with semantic analysis. B
   - WHERE predicate changes
   - GROUP BY/HAVING changes
   - ORDER BY/LIMIT/OFFSET changes
+  - Subquery detection and comparison
 - ⚙️ **Configurable Options**: Normalization, whitespace handling, case sensitivity
 - 🎯 **User-Friendly Notices**: Clear, categorized difference summaries with severity levels
 - 🚫 **No Database Required**: Pure string/AST comparison
 - 🏠 **100% Local**: No cloud services or authentication needed
+
+## Validation Features
+
+The app validates SQL queries before comparison and detects:
+- ❌ Empty or whitespace-only queries
+- ❌ Syntax errors with detailed error messages
+- ❌ Unbalanced parentheses
+- ❌ Unbalanced quotes (single and double)
+- ❌ Common SQL keyword typos (SELCT → SELECT, FORM → FROM, etc.)
+- ✅ Structural validation of parsed queries
 
 ## Requirements
 
@@ -61,6 +74,20 @@ uv run pytest tests/ -v
 uv run pytest tests/test_diff_engine.py::test_compare_sql_select_column_added -v
 ```
 
+### Demo Scripts
+
+Run the validation demo to see SQL validation and beautification in action:
+
+```bash
+uv run python demo_validator.py
+```
+
+Run the comparison demo:
+
+```bash
+uv run python demo.py
+```
+
 ### Code Quality
 
 ```bash
@@ -82,16 +109,40 @@ sql_diff_ui/
 │   ├── __init__.py
 │   ├── app.py           # Streamlit UI
 │   ├── diff_engine.py   # Core comparison logic
+│   ├── sql_validator.py # SQL validation & beautification
 │   └── models.py        # Data models
 ├── tests/
 │   ├── __init__.py
-│   └── test_diff_engine.py
+│   ├── test_diff_engine.py
+│   ├── test_validator.py
+│   └── test_subqueries.py
+├── demo.py              # Demo script for comparison
+├── demo_validator.py    # Demo script for validation
 ├── pyproject.toml       # PEP 621 project config
 ├── Makefile
 └── README.md
 ```
 
 ## How It Works
+
+### SQL Validation
+
+Before comparison, each SQL query is validated:
+1. **Empty Check**: Verifies the query is not empty or whitespace-only
+2. **Parse Check**: Attempts to parse the SQL using sqlglot
+3. **Structural Validation**: Checks for:
+   - Balanced parentheses
+   - Balanced quotes
+   - Common keyword typos
+4. **Error Reporting**: Provides clear, actionable error messages with line numbers when available
+
+### SQL Beautification
+
+Valid SQL is automatically beautified:
+- Proper indentation and line breaks
+- Consistent keyword casing
+- Normalized spacing around operators
+- Clean formatting of complex queries (subqueries, joins, etc.)
 
 ### Text Diff
 
