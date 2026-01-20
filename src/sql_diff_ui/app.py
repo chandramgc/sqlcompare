@@ -117,7 +117,17 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
             else:
                 st.error("❌ SQL A has validation errors:")
                 for error in errors_a:
-                    st.error(f"  • {error}")
+                    # Check if error has line number for better formatting
+                    if hasattr(error, 'line') and error.line:
+                        st.error(f"  **Line {error.line}:** {error.message}")
+                    else:
+                        st.error(f"  • {error}")
+                
+                # Show SQL with line numbers for debugging
+                with st.expander("🔍 View SQL A with line numbers"):
+                    lines = sql_a.split('\n')
+                    numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
+                    st.code(numbered_sql, language="sql")
 
         with validation_col2:
             if is_valid_b:
@@ -125,7 +135,17 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
             else:
                 st.error("❌ SQL B has validation errors:")
                 for error in errors_b:
-                    st.error(f"  • {error}")
+                    # Check if error has line number for better formatting
+                    if hasattr(error, 'line') and error.line:
+                        st.error(f"  **Line {error.line}:** {error.message}")
+                    else:
+                        st.error(f"  • {error}")
+                
+                # Show SQL with line numbers for debugging
+                with st.expander("🔍 View SQL B with line numbers"):
+                    lines = sql_b.split('\n')
+                    numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
+                    st.code(numbered_sql, language="sql")
 
         # Only proceed with comparison if both queries are valid
         if is_valid_a and is_valid_b:
