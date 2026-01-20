@@ -16,18 +16,19 @@ st.set_page_config(
 # Title and description
 st.title("🔍 SQL Query Comparison Tool")
 st.markdown("Compare two SQL queries and see **semantic differences** with human-friendly notices.")
+st.caption("💡 Tip: For SQL Server queries with [bracket notation], select 'tsql' dialect from options below")
 
 # Options row
 st.subheader("⚙️ Comparison Options")
 
-col_opt1, col_opt2, col_opt3, col_opt4, col_opt5 = st.columns(5)
+col_opt1, col_opt2, col_opt3, col_opt4, col_opt5, col_opt6 = st.columns(6)
 
 with col_opt1:
     dialect = st.selectbox(
         "SQL Dialect",
-        options=["auto", "postgres", "mysql", "sqlite", "bigquery", "snowflake"],
+        options=["auto", "tsql", "postgres", "mysql", "sqlite", "bigquery", "snowflake", "oracle", "redshift"],
         index=0,
-        help="SQL dialect for parsing",
+        help="Select 'tsql' for SQL Server/T-SQL syntax (required for bracket notation like [Column Name])",
     )
 
 with col_opt2:
@@ -53,7 +54,14 @@ with col_opt5:
     show_line_numbers = st.checkbox(
         "Show line numbers",
         value=True,
-        help="Display line numbers in SQL views",
+        help="Display SQL queries with line numbers",
+    )
+
+with col_opt6:
+    show_text_diff = st.checkbox(
+        "Show text diff",
+        value=True,
+        help="Display text difference between queries",
     )
 
 st.markdown("---")
@@ -127,6 +135,19 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                         st.error(f"  **Line {error.line}:** {error.message}")
                     else:
                         st.error(f"  • {error}")
+                
+                # Show dialect warning if using auto-detect and parsing failed
+                if dialect == "auto":
+                    st.warning(
+                        "⚠️ **Dialect Auto-Detection Failed**\n\n"
+                        "The query could not be parsed with auto-detection. "
+                        "Please select the specific SQL dialect from the **SQL Dialect** dropdown above:\n"
+                        "- **tsql** for SQL Server/T-SQL\n"
+                        "- **postgres** for PostgreSQL\n"
+                        "- **mysql** for MySQL\n"
+                        "- **oracle** for Oracle\n"
+                        "- Other dialects as needed"
+                    )
 
         with validation_col2:
             if is_valid_b:
@@ -139,6 +160,19 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                         st.error(f"  **Line {error.line}:** {error.message}")
                     else:
                         st.error(f"  • {error}")
+                
+                # Show dialect warning if using auto-detect and parsing failed
+                if dialect == "auto":
+                    st.warning(
+                        "⚠️ **Dialect Auto-Detection Failed**\n\n"
+                        "The query could not be parsed with auto-detection. "
+                        "Please select the specific SQL dialect from the **SQL Dialect** dropdown above:\n"
+                        "- **tsql** for SQL Server/T-SQL\n"
+                        "- **postgres** for PostgreSQL\n"
+                        "- **mysql** for MySQL\n"
+                        "- **oracle** for Oracle\n"
+                        "- Other dialects as needed"
+                    )
 
         # Only proceed with comparison if both queries are valid
         if is_valid_a and is_valid_b:
@@ -219,7 +253,7 @@ if "comparison_result" in st.session_state:
     else:
         st.success("✅ No semantic differences found. The queries are structurally identical.")
     
-    # Section: View SQL with line numbers and text diff
+    # Section: View SQL with line numbers
     if show_line_numbers:
         st.markdown("---")
         st.subheader("📝 SQL Queries with Line Numbers")
@@ -239,14 +273,15 @@ if "comparison_result" in st.session_state:
                 # Filter out completely blank lines but keep lines with whitespace
                 numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines) if line.strip() or line])
                 st.code(numbered_sql, language="sql", line_numbers=False)
-        
-        # Separate Text Diff section
-        if result.text_diff:
-            st.markdown("---")
-            with st.expander("📊 View Text Diff", expanded=False):
-                st.caption("Lines with '-' (red) are removed from SQL A, lines with '+' (green) are added in SQL B")
-                # Show diff without line numbers to preserve color coding
-                st.code(result.text_diff, language="diff")
+    
+    # Separate Text Diff section
+    if show_text_diff and result.text_diff:
+        st.markdown("---")
+        st.subheader("📊 Text Diff")
+        with st.expander("📊 View Text Diff", expanded=False):
+            st.caption("Lines with '-' (red) are removed from SQL A, lines with '+' (green) are added in SQL B")
+            # Show diff without line numbers to preserve color coding
+            st.code(result.text_diff, language="diff")
 
 # Footer
 st.markdown("---")
