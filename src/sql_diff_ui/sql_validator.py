@@ -391,6 +391,55 @@ class SQLValidator:
                 errors.append(
                     ValidationError(f"Empty HAVING clause - no condition specified", line=i+1)
                 )
+        
+        # Check for unbalanced CASE/END and WHEN/THEN statements
+        # Count CASE and END keywords across all lines
+        sql_upper = sql.upper()
+        case_count = 0
+        end_count = 0
+        case_lines = []
+        end_lines = []
+        
+        for i, line in enumerate(sql_lines, 1):
+            line_upper = line.upper()
+            # Count CASE keywords (as whole word)
+            case_matches = len(re.findall(r'\bCASE\b', line_upper))
+            case_count += case_matches
+            if case_matches > 0:
+                case_lines.extend([i] * case_matches)
+            
+            # Count END keywords (as whole word) 
+            end_matches = len(re.findall(r'\bEND\b', line_upper))
+            end_count += end_matches
+            if end_matches > 0:
+                end_lines.extend([i] * end_matches)
+        
+        if case_count > end_count:
+            errors.append(
+                ValidationError(
+                    f"Incomplete CASE statement - found {case_count} CASE but only {end_count} END keywords",
+                    line=case_lines[end_count] if end_count < len(case_lines) else case_lines[0]
+                )
+            )
+        
+        # Check for WHEN without THEN
+        for i, line in enumerate(sql_lines, 1):
+            line_upper = line.upper()
+            # Find WHEN keywords
+            if re.search(r'\bWHEN\b', line_upper):
+                # Check if THEN appears on the same line
+                if not re.search(r'\bTHEN\b', line_upper):
+                    # Look at next few lines for THEN
+                    found_then = False
+                    for j in range(i, min(i + 3, len(sql_lines) + 1)):
+                        if j <= len(sql_lines) and re.search(r'\bTHEN\b', sql_lines[j - 1].upper()):
+                            found_then = True
+                            break
+                    
+                    if not found_then:
+                        errors.append(
+                            ValidationError(f"Incomplete WHEN clause - missing 'THEN'", line=i)
+                        )
 
         return errors
 

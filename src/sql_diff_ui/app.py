@@ -59,7 +59,7 @@ with col2:
 st.markdown("---")
 st.subheader("⚙️ Comparison Options")
 
-col_opt1, col_opt2, col_opt3, col_opt4, col_opt5 = st.columns(5)
+col_opt1, col_opt2, col_opt3, col_opt4, col_opt5, col_opt6 = st.columns(6)
 
 with col_opt1:
     normalize_sql = st.checkbox("Normalize SQL", value=True, help="Normalize SQL formatting")
@@ -89,6 +89,13 @@ with col_opt5:
         options=["auto", "postgres", "mysql", "sqlite", "bigquery", "snowflake"],
         index=0,
         help="SQL dialect for parsing",
+    )
+
+with col_opt6:
+    show_line_numbers = st.checkbox(
+        "Show line numbers",
+        value=True,
+        help="Display line numbers in error SQL views",
     )
 
 # Compare button
@@ -122,9 +129,10 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                         st.error(f"  **Line {error.line}:** {error.message}")
                     else:
                         st.error(f"  • {error}")
-                
-                # Show SQL with line numbers for debugging
-                with st.expander("🔍 View SQL A with line numbers"):
+            
+            # Show SQL with line numbers (if enabled) - for both valid and invalid
+            if show_line_numbers:
+                with st.expander("📝 View SQL A with line numbers", expanded=False):
                     lines = sql_a.split('\n')
                     numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
                     st.code(numbered_sql, language="sql")
@@ -140,9 +148,10 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                         st.error(f"  **Line {error.line}:** {error.message}")
                     else:
                         st.error(f"  • {error}")
-                
-                # Show SQL with line numbers for debugging
-                with st.expander("🔍 View SQL B with line numbers"):
+            
+            # Show SQL with line numbers (if enabled) - for both valid and invalid
+            if show_line_numbers:
+                with st.expander("📝 View SQL B with line numbers", expanded=False):
                     lines = sql_b.split('\n')
                     numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
                     st.code(numbered_sql, language="sql")

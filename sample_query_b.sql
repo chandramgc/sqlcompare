@@ -34,7 +34,28 @@ order_items_agg AS (
         THEN oi.quantity * oi.unit_price
         ELSE 0
       END
-    ) AS hi_value_category_spend
+    ) AS hi_value_category_spend,
+    SUM(
+      CASE
+        WHEN oi.unit_price >= 500 THEN
+          CASE
+            WHEN oi.quantity > 1 THEN oi.quantity * oi.unit_price * 1.1  -- bulk premium
+            ELSE oi.quantity * oi.unit_price
+          END
+        WHEN oi.unit_price >= 100 THEN
+          CASE
+            WHEN oi.quantity >= 5 THEN oi.quantity * oi.unit_price * 0.95  -- volume discount
+            WHEN oi.quantity >= 3 THEN oi.quantity * oi.unit_price * 0.98
+            ELSE oi.quantity * oi.unit_price
+          END
+        WHEN oi.unit_price >= 20 THEN oi.quantity * oi.unit_price
+        ELSE
+          CASE
+            WHEN oi.quantity > 10 THEN oi.quantity * oi.unit_price * 0.9  -- clearance bulk
+            ELSE oi.quantity * oi.unit_price
+          END
+      END
+    ) AS adjusted_value
   FROM order_items oi
   GROUP BY oi.order_id
 ),
@@ -83,7 +104,36 @@ order_enriched AS (
     pa.last_payment_method,
     COALESCE(ra.return_count, 0) AS return_count,
     COALESCE(ra.total_refunds, 0) AS total_refunds,
-    (COALESCE(pa.captured_amount, 0) - COALESCE(ra.total_refunds, 0)) AS net_paid_after_returns
+    (COALESCE(pa.captured_amount, 0) - COALESCE(ra.total_refunds, 0)) AS net_paid_after_returns,
+    CASE
+      WHEN COALESCE(ra.return_count, 0) = 0 THEN 'no_returns'
+      WHEN COALESCE(ra.return_count, 0) = 1 THEN
+        CASE
+          WHEN COALESCE(ra.total_refunds, 0) / NULLIF(COALESCE(pa.captured_amount, 0), 0) > 0.5 THEN 'high_value_single_return'
+          ELSE 'low_value_single_return'
+        END
+      WHEN COALESCE(ra.return_count, 0) >= 2 THEN
+        CASE
+          WHEN COALESCE(ra.total_refunds, 0) > COALESCE(pa.captured_amount, 0) * 0.8 THEN 'serial_returner_high_refund'
+          WHEN COALESCE(ra.return_count, 0) >= 3 THEN 'serial_returner_multiple'
+          ELSE 'moderate_returner'
+        END
+      ELSE 'unknown_return_status'
+    END AS return_risk_category,
+    CASE
+      WHEN ro.status = 'paid' THEN
+        CASE
+          WHEN pa.last_payment_method = 'credit_card' THEN 'cc_paid'
+          WHEN pa.last_payment_method IN ('paypal', 'stripe') THEN 'digital_wallet_paid'
+          ELSE 'other_payment_paid'
+        END
+      WHEN ro.status IN ('shipped', 'delivered') THEN
+        CASE
+          WHEN COALESCE(oia.hi_value_category_spend, 0) > COALESCE(oia.items_subtotal, 0) * 0.5 THEN 'hi_value_shipped'
+          ELSE 'regular_shipped'
+        END
+      ELSE 'non_completed'
+    END AS fulfillment_category
   FROM recent_orders ro
   LEFT JOIN order_items_agg oia ON oia.order_id = ro.order_id
   LEFT JOIN payments_agg pa ON pa.order_id = ro.order_id
@@ -141,7 +191,47 @@ SELECT
       AND oe2.status IN ('paid','shipped','delivered')
     ORDER BY oe2.created_at DESC
     LIMIT 1
-  ) AS most_recent_successful_order_id
+  ) AS most_recent_successful_order_id,
+  CASE
+    WHEN cs.segment = 'subscriber' THEN
+      CASE
+        WHEN SUM(oe.return_count) = 0 THEN 'loyal_subscriber_no_returns'
+        WHEN SUM(oe.return_count) / NULLIF(COUNT(*), 0) > 0.3 THEN 'problematic_subscriber'
+        ELSE 'regular_subscriber'
+      END
+    WHEN cs.segment = 'new' THEN
+      CASE
+        WHEN COUNT(*) = 1 THEN 'first_time_buyer'
+        WHEN COUNT(*) >= 3 THEN 'rapid_repeat_buyer'
+        ELSE 'exploring_new_customer'
+      END
+    ELSE
+      CASE
+        WHEN SUM(oe.net_paid_after_returns) >= 5000 THEN 'high_value_standard'
+        WHEN AVG(NULLIF(oe.item_count, 0)) > 8 THEN 'bulk_standard_buyer'
+        WHEN SUM(oe.return_count) / NULLIF(COUNT(*), 0) > 0.5 THEN 'return_prone_standard'
+        ELSE 'regular_standard'
+      END
+  END AS detailed_customer_profile,
+  CASE
+    WHEN cs.region IN ('US-WEST', 'US-EAST') THEN
+      CASE
+        WHEN MAX(oe.hi_value_category_spend) > 1000 THEN 'us_premium'
+        WHEN COUNT(*) > 10 THEN 'us_frequent'
+        ELSE 'us_regular'
+      END
+    WHEN cs.region IN ('EU-NORTH', 'EU-SOUTH') THEN
+      CASE
+        WHEN SUM(oe.return_count) > 5 THEN 'eu_high_return'
+        ELSE 'eu_standard'
+      END
+    WHEN cs.region = 'UNKNOWN' THEN 'region_unknown'
+    ELSE
+      CASE
+        WHEN SUM(oe.net_paid_after_returns) / NULLIF(COUNT(*), 0) > 200 THEN 'other_high_aov'
+        ELSE 'other_standard'
+      END
+  END AS regional_behavior_segment
 FROM customer_segments cs
 JOIN order_enriched oe
   ON oe.customer_id = cs.customer_id
