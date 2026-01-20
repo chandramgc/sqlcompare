@@ -72,19 +72,6 @@ class SQLValidator:
             # Additional validation checks
             errors.extend(self._validate_structure(parsed, sql))
 
-            # Try to regenerate SQL - if this fails, there's a parse issue
-            try:
-                regenerated = parsed.sql()
-                # If regenerated SQL is significantly shorter, something was lost in parsing
-                if len(regenerated.strip()) < len(sql.strip()) * 0.5:
-                    errors.append(
-                        ValidationError(
-                            "SQL parsing resulted in incomplete query - possible syntax error"
-                        )
-                    )
-            except Exception as e:
-                errors.append(ValidationError(f"Failed to regenerate SQL: {str(e)}"))
-
             if errors:
                 return False, errors
 
@@ -219,34 +206,9 @@ class SQLValidator:
                 )
             )
 
-        # Check if regenerated SQL loses significant content
-        try:
-            regenerated = parsed.sql()
-            original_tokens = sql.split()
-            regenerated_tokens = regenerated.split()
-            
-            # Check specifically for lost string literals first (most critical)
-            import re
-            original_strings = re.findall(r"'[^']*'", sql)
-            regenerated_strings = re.findall(r"'[^']*'", regenerated)
-            
-            if len(original_strings) > len(regenerated_strings):
-                missing_strings = set(original_strings) - set(regenerated_strings)
-                errors.append(
-                    ValidationError(
-                        f"SQL contains syntax errors - lost string literals during parsing: {', '.join(missing_strings)}"
-                    )
-                )
-            
-            # If we lost more than 15% of tokens, something is wrong
-            elif len(regenerated_tokens) < len(original_tokens) * 0.85:
-                errors.append(
-                    ValidationError(
-                        "SQL contains syntax errors - significant content lost during parsing"
-                    )
-                )
-        except:
-            pass
+        # Note: We don't check regenerated SQL content here because sqlglot may
+        # transform/normalize SQL in ways that look like content loss but aren't.
+        # If sqlglot can parse it without throwing ParseError, we trust it's valid.
 
         # Check for common SQL keywords typos (word boundary match only)
         common_typos = {
