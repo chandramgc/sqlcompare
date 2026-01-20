@@ -17,6 +17,47 @@ st.set_page_config(
 st.title("🔍 SQL Query Comparison Tool")
 st.markdown("Compare two SQL queries and see **semantic differences** with human-friendly notices.")
 
+# Options row
+st.subheader("⚙️ Comparison Options")
+
+col_opt1, col_opt2, col_opt3, col_opt4, col_opt5 = st.columns(5)
+
+with col_opt1:
+    dialect = st.selectbox(
+        "SQL Dialect",
+        options=["auto", "postgres", "mysql", "sqlite", "bigquery", "snowflake"],
+        index=0,
+        help="SQL dialect for parsing",
+    )
+
+with col_opt2:
+    ignore_whitespace = st.checkbox(
+        "Ignore whitespace", value=True, help="Ignore whitespace differences in comparison"
+    )
+
+with col_opt3:
+    case_insensitive = st.checkbox(
+        "Case-insensitive keywords",
+        value=True,
+        help="Treat SQL keywords as case-insensitive",
+    )
+
+with col_opt4:
+    semantic_diff = st.checkbox(
+        "Semantic diff enabled",
+        value=True,
+        help="Enable semantic/structural analysis",
+    )
+
+with col_opt5:
+    show_line_numbers = st.checkbox(
+        "Show line numbers",
+        value=True,
+        help="Display line numbers in SQL views",
+    )
+
+st.markdown("---")
+
 # Layout: Two columns for SQL inputs
 col1, col2 = st.columns(2)
 
@@ -55,49 +96,6 @@ with col2:
         label_visibility="collapsed",
     )
 
-# Options row
-st.markdown("---")
-st.subheader("⚙️ Comparison Options")
-
-col_opt1, col_opt2, col_opt3, col_opt4, col_opt5, col_opt6 = st.columns(6)
-
-with col_opt1:
-    normalize_sql = st.checkbox("Normalize SQL", value=True, help="Normalize SQL formatting")
-
-with col_opt2:
-    ignore_whitespace = st.checkbox(
-        "Ignore whitespace", value=True, help="Ignore whitespace differences in text diff"
-    )
-
-with col_opt3:
-    case_insensitive = st.checkbox(
-        "Case-insensitive keywords",
-        value=True,
-        help="Treat SQL keywords as case-insensitive",
-    )
-
-with col_opt4:
-    semantic_diff = st.checkbox(
-        "Semantic diff enabled",
-        value=True,
-        help="Enable semantic/structural analysis",
-    )
-
-with col_opt5:
-    dialect = st.selectbox(
-        "SQL Dialect",
-        options=["auto", "postgres", "mysql", "sqlite", "bigquery", "snowflake"],
-        index=0,
-        help="SQL dialect for parsing",
-    )
-
-with col_opt6:
-    show_line_numbers = st.checkbox(
-        "Show line numbers",
-        value=True,
-        help="Display line numbers in error SQL views",
-    )
-
 # Compare button
 st.markdown("---")
 if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=True):
@@ -129,13 +127,6 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                         st.error(f"  **Line {error.line}:** {error.message}")
                     else:
                         st.error(f"  • {error}")
-            
-            # Show SQL with line numbers (if enabled) - for both valid and invalid
-            if show_line_numbers:
-                with st.expander("📝 View SQL A with line numbers", expanded=False):
-                    lines = sql_a.split('\n')
-                    numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
-                    st.code(numbered_sql, language="sql")
 
         with validation_col2:
             if is_valid_b:
@@ -148,13 +139,6 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                         st.error(f"  **Line {error.line}:** {error.message}")
                     else:
                         st.error(f"  • {error}")
-            
-            # Show SQL with line numbers (if enabled) - for both valid and invalid
-            if show_line_numbers:
-                with st.expander("📝 View SQL B with line numbers", expanded=False):
-                    lines = sql_b.split('\n')
-                    numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines)])
-                    st.code(numbered_sql, language="sql")
 
         # Only proceed with comparison if both queries are valid
         if is_valid_a and is_valid_b:
@@ -175,7 +159,7 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                 result = compare_sql(
                     sql_a=beautified_a,
                     sql_b=beautified_b,
-                    normalize=normalize_sql,
+                    normalize=True,
                     ignore_whitespace=ignore_whitespace,
                     case_insensitive_keywords=case_insensitive,
                     semantic_diff=semantic_diff,
@@ -234,29 +218,35 @@ if "comparison_result" in st.session_state:
                         st.caption(notice.details)
     else:
         st.success("✅ No semantic differences found. The queries are structurally identical.")
-
-    # Section 2: Text Diff
-    st.markdown("---")
-    st.subheader("📝 Text Diff")
-
-    if result.text_diff:
-        # Display diff in a code block
-        st.code(result.text_diff, language="diff", line_numbers=False)
-    else:
-        st.info("No text differences found.")
-
-    # Optional: Show normalized SQL if available
-    if result.sql_a_normalized and result.sql_b_normalized:
-        with st.expander("🔧 View Normalized SQL"):
-            col_norm1, col_norm2 = st.columns(2)
-
-            with col_norm1:
-                st.markdown("**Normalized SQL A**")
-                st.code(result.sql_a_normalized, language="sql")
-
-            with col_norm2:
-                st.markdown("**Normalized SQL B**")
-                st.code(result.sql_b_normalized, language="sql")
+    
+    # Section: View SQL with line numbers and text diff
+    if show_line_numbers:
+        st.markdown("---")
+        st.subheader("📝 SQL Queries with Line Numbers")
+        
+        view_col1, view_col2 = st.columns(2)
+        
+        with view_col1:
+            with st.expander("📝 View SQL A with line numbers", expanded=False):
+                lines = sql_a.split('\n')
+                # Filter out completely blank lines but keep lines with whitespace
+                numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines) if line.strip() or line])
+                st.code(numbered_sql, language="sql", line_numbers=False)
+        
+        with view_col2:
+            with st.expander("📝 View SQL B with line numbers", expanded=False):
+                lines = sql_b.split('\n')
+                # Filter out completely blank lines but keep lines with whitespace
+                numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines) if line.strip() or line])
+                st.code(numbered_sql, language="sql", line_numbers=False)
+        
+        # Separate Text Diff section
+        if result.text_diff:
+            st.markdown("---")
+            with st.expander("📊 View Text Diff", expanded=False):
+                st.caption("Lines with '-' (red) are removed from SQL A, lines with '+' (green) are added in SQL B")
+                # Show diff without line numbers to preserve color coding
+                st.code(result.text_diff, language="diff")
 
 # Footer
 st.markdown("---")
