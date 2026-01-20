@@ -262,7 +262,47 @@ SELECT
       AND oe2.status IN ('paid','shipped','delivered')
     ORDER BY oe2.created_at DESC
     LIMIT 1
-  ) AS most_recent_successful_order_id
+  ) AS most_recent_successful_order_id,
+  CASE
+    WHEN cs.segment = 'subscriber' THEN
+      CASE
+        WHEN SUM(oe.return_count) = 0 THEN 'loyal_subscriber_no_returns'
+        WHEN SUM(oe.return_count) / NULLIF(COUNT(*), 0) > 0.3 THEN 'problematic_subscriber'
+        ELSE 'regular_subscriber'
+      END
+    WHEN cs.segment = 'new' THEN
+      CASE
+        WHEN COUNT(*) = 1 THEN 'first_time_buyer'
+        WHEN COUNT(*) >= 3 THEN 'rapid_repeat_buyer'
+        ELSE 'exploring_new_customer'
+      END
+    ELSE
+      CASE
+        WHEN SUM(oe.net_paid_after_returns) >= 5000 THEN 'high_value_standard'
+        WHEN AVG(NULLIF(oe.item_count, 0)) > 8 THEN 'bulk_standard_buyer'
+        WHEN SUM(oe.return_count) / NULLIF(COUNT(*), 0) > 0.5 THEN 'return_prone_standard'
+        ELSE 'regular_standard'
+      END
+  END AS detailed_customer_profile,
+  CASE
+    WHEN cs.region IN ('US-WEST', 'US-EAST') THEN
+      CASE
+        WHEN MAX(oe.hi_value_category_spend) > 1000 THEN 'us_premium'
+        WHEN COUNT(*) > 10 THEN 'us_frequent'
+        ELSE 'us_regular'
+      END
+    WHEN cs.region IN ('EU-NORTH', 'EU-SOUTH') THEN
+      CASE
+        WHEN SUM(oe.return_count) > 5 THEN 'eu_high_return'
+        ELSE 'eu_standard'
+      END
+    WHEN cs.region = 'UNKNOWN' THEN 'region_unknown'
+    ELSE
+      CASE
+        WHEN SUM(oe.net_paid_after_returns) / NULLIF(COUNT(*), 0) > 200 THEN 'other_high_aov'
+        ELSE 'other_standard'
+      END
+  END AS regional_behavior_segment
 FROM customer_segments cs
 JOIN order_enriched oe
   ON oe.customer_id = cs.customer_id

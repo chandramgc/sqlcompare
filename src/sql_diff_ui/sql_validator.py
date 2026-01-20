@@ -248,7 +248,7 @@ class SQLValidator:
         except:
             pass
 
-        # Check for common SQL keywords typos
+        # Check for common SQL keywords typos (word boundary match only)
         common_typos = {
             "SELCT": "SELECT",
             "FORM": "FROM",
@@ -258,8 +258,10 @@ class SQLValidator:
             "HAVIG": "HAVING",
         }
 
+        import re
         for typo, correct in common_typos.items():
-            if typo in sql_upper:
+            # Use word boundary to avoid matching inside other words or string literals
+            if re.search(r'\b' + re.escape(typo) + r'\b', sql_upper):
                 errors.append(ValidationError(f"Possible typo: '{typo}' (did you mean '{correct}'?)"))
 
         # Check for incomplete WHERE clauses - pattern like: column 'value' without operator
@@ -402,6 +404,16 @@ class SQLValidator:
         
         for i, line in enumerate(sql_lines, 1):
             line_upper = line.upper()
+            
+            # Skip comment lines
+            line_stripped = line.strip()
+            if line_stripped.startswith('--') or line_stripped.startswith('/*'):
+                continue
+            
+            # Remove inline comments before counting
+            if '--' in line_upper:
+                line_upper = line_upper.split('--')[0]
+            
             # Count CASE keywords (as whole word)
             case_matches = len(re.findall(r'\bCASE\b', line_upper))
             case_count += case_matches
@@ -422,24 +434,43 @@ class SQLValidator:
                 )
             )
         
-        # Check for WHEN without THEN
-        for i, line in enumerate(sql_lines, 1):
+        # Check for WHEN without THEN - use counting approach similar to CASE/END
+        # Count total WHEN and THEN keywords
+        when_count = 0
+        then_count = 0
+        
+        for line in sql_lines:
             line_upper = line.upper()
-            # Find WHEN keywords
-            if re.search(r'\bWHEN\b', line_upper):
-                # Check if THEN appears on the same line
-                if not re.search(r'\bTHEN\b', line_upper):
-                    # Look at next few lines for THEN
-                    found_then = False
-                    for j in range(i, min(i + 3, len(sql_lines) + 1)):
-                        if j <= len(sql_lines) and re.search(r'\bTHEN\b', sql_lines[j - 1].upper()):
-                            found_then = True
-                            break
-                    
-                    if not found_then:
-                        errors.append(
-                            ValidationError(f"Incomplete WHEN clause - missing 'THEN'", line=i)
-                        )
+            
+            # Skip comment lines
+            line_stripped = line.strip()
+            if line_stripped.startswith('--') or line_stripped.startswith('/*'):
+                continue
+            
+            # Remove inline comments before counting
+            if '--' in line_upper:
+                line_upper = line_upper.split('--')[0]
+            
+            # Count WHEN keywords (as whole word)
+            when_matches = len(re.findall(r'\bWHEN\b', line_upper))
+            when_count += when_matches
+            
+            # Count THEN keywords (as whole word)
+            then_matches = len(re.findall(r'\bTHEN\b', line_upper))
+            then_count += then_matches
+        
+        # Only report error if WHEN count significantly exceeds THEN count
+        # Allow some tolerance for ELSE clauses and complex conditions
+        if when_count > then_count and (when_count - then_count) > 0:
+            # Only flag as error if the difference is significant (not just off by 1 due to parsing)
+            # In valid SQL, every WHEN should have a THEN
+            if when_count != then_count:
+                errors.append(
+                    ValidationError(
+                        f"Possible incomplete WHEN clause - found {when_count} WHEN but {then_count} THEN keywords",
+                        line=None
+                    )
+                )
 
         return errors
 
