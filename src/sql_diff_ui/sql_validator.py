@@ -216,6 +216,72 @@ class SQLValidator:
                     )
                 )
 
+        # Check for empty SQL clauses (keywords without values)
+        sql_lines = sql.upper().split('\n')
+        for i, line in enumerate(sql_lines, 1):
+            line_stripped = line.strip()
+            
+            # Check for incomplete multi-word keywords
+            # ORDER without BY
+            if re.match(r'^ORDER\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Incomplete keyword 'ORDER' - missing 'BY' (should be 'ORDER BY')", line=i)
+                )
+            
+            # GROUP without BY
+            if re.match(r'^GROUP\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Incomplete keyword 'GROUP' - missing 'BY' (should be 'GROUP BY')", line=i)
+                )
+            
+            # Check for SELECT with nothing after it
+            if re.match(r'^SELECT\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty SELECT clause - no columns specified", line=i)
+                )
+            
+            # Check for FROM with nothing after it
+            if re.match(r'^FROM\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty FROM clause - no table specified", line=i)
+                )
+            
+            # Check for WHERE with nothing after it
+            if re.match(r'^WHERE\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty WHERE clause - no condition specified", line=i)
+                )
+            
+            # Check for ORDER BY with nothing after it
+            if re.match(r'^ORDER\s+BY\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty ORDER BY clause - no columns specified", line=i)
+                )
+            
+            # Check for GROUP BY with nothing after it
+            if re.match(r'^GROUP\s+BY\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty GROUP BY clause - no columns specified", line=i)
+                )
+            
+            # Check for LIMIT with nothing after it
+            if re.match(r'^LIMIT\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty LIMIT clause - no value specified", line=i)
+                )
+            
+            # Check for OFFSET with nothing after it
+            if re.match(r'^OFFSET\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty OFFSET clause - no value specified", line=i)
+                )
+            
+            # Check for HAVING with nothing after it
+            if re.match(r'^HAVING\s*$', line_stripped):
+                errors.append(
+                    ValidationError(f"Empty HAVING clause - no condition specified", line=i)
+                )
+
         return errors
 
     def beautify_sql(self, sql: str) -> str:

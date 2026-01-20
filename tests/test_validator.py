@@ -171,3 +171,151 @@ class TestSQLValidator:
         error3 = ValidationError("Syntax error", line=10, column=5)
         assert "Line 10" in str(error3)
         assert "Column 5" in str(error3)
+
+    def test_empty_select_clause(self):
+        """Test detection of empty SELECT clause."""
+        validator = SQLValidator()
+        sql = """
+        SELECT
+        FROM users
+        WHERE status = 'active'
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        assert len(errors) > 0
+        assert any("SELECT" in error.message and "empty" in error.message.lower() 
+                   for error in errors)
+
+    def test_empty_from_clause(self):
+        """Test detection of empty FROM clause."""
+        validator = SQLValidator()
+        sql = """
+        SELECT *
+        FROM
+        WHERE status = 'active'
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        assert any("FROM" in error.message and "empty" in error.message.lower() 
+                   for error in errors)
+
+    def test_empty_where_clause(self):
+        """Test detection of empty WHERE clause."""
+        validator = SQLValidator()
+        sql = """
+        SELECT *
+        FROM users
+        WHERE
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        assert any("WHERE" in error.message and "empty" in error.message.lower() 
+                   for error in errors)
+
+    def test_empty_order_by_clause(self):
+        """Test detection of empty ORDER BY clause."""
+        validator = SQLValidator()
+        sql = """
+        SELECT *
+        FROM users
+        ORDER BY
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        assert any("ORDER BY" in error.message and "empty" in error.message.lower() 
+                   for error in errors)
+
+    def test_empty_limit_clause(self):
+        """Test detection of empty LIMIT clause."""
+        validator = SQLValidator()
+        sql = """
+        SELECT *
+        FROM users
+        LIMIT
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        assert any("LIMIT" in error.message and "empty" in error.message.lower() 
+                   for error in errors)
+
+    def test_multiple_empty_clauses(self):
+        """Test detection of multiple empty clauses."""
+        validator = SQLValidator()
+        sql = """
+        SELECT
+        FROM
+        WHERE
+        ORDER BY
+        LIMIT
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        # Should detect at least SELECT, FROM, WHERE, ORDER BY, and LIMIT as empty
+        assert len(errors) >= 5
+        
+        error_messages = [e.message for e in errors]
+        assert any("SELECT" in msg for msg in error_messages)
+        assert any("FROM" in msg for msg in error_messages)
+        assert any("WHERE" in msg for msg in error_messages)
+        assert any("ORDER BY" in msg for msg in error_messages)
+        assert any("LIMIT" in msg for msg in error_messages)
+
+    def test_incomplete_order_keyword(self):
+        """Test detection of ORDER without BY."""
+        validator = SQLValidator()
+        sql = """
+        SELECT *
+        FROM users
+        WHERE status = 'active'
+        ORDER
+        LIMIT 10
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        assert len(errors) > 0
+        assert any("ORDER" in error.message and "BY" in error.message and "Incomplete" in error.message
+                   for error in errors)
+
+    def test_incomplete_group_keyword(self):
+        """Test detection of GROUP without BY."""
+        validator = SQLValidator()
+        sql = """
+        SELECT category, COUNT(*)
+        FROM products
+        GROUP
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        assert any("GROUP" in error.message and "BY" in error.message and "Incomplete" in error.message
+                   for error in errors)
+
+    def test_all_incomplete_keywords(self):
+        """Test SQL with incomplete multi-word keywords."""
+        validator = SQLValidator()
+        sql = """
+        SELECT
+        FROM
+        WHERE
+        ORDER
+        LIMIT
+        """
+        is_valid, errors = validator.validate_sql(sql)
+
+        assert is_valid is False
+        # Should detect SELECT, FROM, WHERE, ORDER (incomplete), and LIMIT as errors
+        assert len(errors) >= 5
+        
+        error_messages = [e.message for e in errors]
+        assert any("SELECT" in msg and "empty" in msg.lower() for msg in error_messages)
+        assert any("FROM" in msg and "empty" in msg.lower() for msg in error_messages)
+        assert any("WHERE" in msg and "empty" in msg.lower() for msg in error_messages)
+        assert any("ORDER" in msg and "Incomplete" in msg for msg in error_messages)
+        assert any("LIMIT" in msg and "empty" in msg.lower() for msg in error_messages)
