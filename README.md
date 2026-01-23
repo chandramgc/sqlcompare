@@ -4,6 +4,7 @@ A polished, local Python app for comparing SQL queries with semantic analysis. B
 
 ## Features
 
+### Core Comparison Features
 - ✅ **SQL Validation**: Validates SQL syntax before comparison with clear error messages
 - 🎨 **SQL Beautification**: Automatically formats and beautifies SQL queries
 - 🔍 **Text Diff**: Side-by-side unified diff with color-coded additions/removals
@@ -15,8 +16,24 @@ A polished, local Python app for comparing SQL queries with semantic analysis. B
   - GROUP BY/HAVING changes
   - ORDER BY/LIMIT/OFFSET changes
   - Subquery detection and comparison
-- ⚙️ **Configurable Options**: Normalization, whitespace handling, case sensitivity
 - 🎯 **User-Friendly Notices**: Clear, categorized difference summaries with severity levels
+
+### UI Features
+- 📋 **Tabbed Results View**: Organized comparison results with tabs for:
+  - Difference Notices
+  - Beautified SQL
+  - SQL with Line Numbers
+  - Text Diff
+- ⚠️ **Smart Notifications**: Toast notifications with color-coded alerts
+- 🔧 **Single Query Validator**: Popup dialog for validating individual SQL queries
+- ⚙️ **Configurable Options**: 
+  - SQL Dialect selection (auto, T-SQL, PostgreSQL, MySQL, and more)
+  - Whitespace handling
+  - Case sensitivity
+  - Line numbers toggle
+  - Text diff toggle
+  - Semantic analysis toggle
+- 🌐 **Multi-Dialect Support**: Support for 9+ SQL dialects with auto-detection
 - 🚫 **No Database Required**: Pure string/AST comparison
 - 🏠 **100% Local**: No cloud services or authentication needed
 
