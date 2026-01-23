@@ -68,6 +68,30 @@ class SQLValidator:
             if parsed is None:
                 errors.append(ValidationError("Failed to parse SQL query"))
                 return False, errors
+            
+            # Check if parsed result is a valid SQL statement (not just a column/identifier)
+            # Valid SQL statements: SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, etc.
+            valid_statement_types = (
+                sqlglot.exp.Select,
+                sqlglot.exp.Insert,
+                sqlglot.exp.Update,
+                sqlglot.exp.Delete,
+                sqlglot.exp.Create,
+                sqlglot.exp.Drop,
+                sqlglot.exp.Alter,
+                sqlglot.exp.Merge,
+                sqlglot.exp.Union,
+                sqlglot.exp.With,
+                sqlglot.exp.Command,
+            )
+            
+            if not isinstance(parsed, valid_statement_types):
+                # It's not a SQL statement, just a column/identifier/literal
+                errors.append(ValidationError(
+                    f"Invalid SQL: Input is not a valid SQL statement (parsed as {type(parsed).__name__}). "
+                    "Expected a complete SQL query like SELECT, INSERT, UPDATE, etc."
+                ))
+                return False, errors
 
             # Additional validation checks
             errors.extend(self._validate_structure(parsed, sql))
