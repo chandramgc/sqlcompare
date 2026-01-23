@@ -41,11 +41,22 @@ A polished, local Python app for comparing SQL queries with semantic analysis. B
 
 The app validates SQL queries before comparison and detects:
 - ❌ Empty or whitespace-only queries
-- ❌ Syntax errors with detailed error messages
-- ❌ Unbalanced parentheses
-- ❌ Unbalanced quotes (single and double)
-- ❌ Common SQL keyword typos (SELCT → SELECT, FORM → FROM, etc.)
+- ❌ Syntax errors with detailed error messages and line numbers
+- ❌ Unbalanced parentheses with line number references
+- ❌ Unbalanced quotes (single and double) with line number references
+- ❌ Common SQL keyword typos (SELCT → SELECT, FORM → FROM, ODER → ORDER, etc.)
+- ❌ Incomplete WHERE clauses (missing comparison operators)
+- ❌ Empty SQL clauses (SELECT, FROM, WHERE, etc.)
+- ❌ Incomplete CASE statements (missing END, WHEN, THEN)
+- ❌ Incomplete multi-word keywords (ORDER without BY, GROUP without BY)
+- ⚠️ **Dialect Auto-Detection Warning**: Alerts when auto-detection fails and suggests selecting specific dialect
 - ✅ Structural validation of parsed queries
+
+### Single Query Validator
+- 🔍 **Standalone Validation**: Validate individual queries without comparison
+- 🎨 **Instant Beautification**: See formatted SQL for valid queries
+- 🎯 **Dialect Selection**: Choose specific SQL dialect for validation
+- 💡 **Popup Dialog**: Clean modal interface that doesn't disrupt main workflow
 
 ## Requirements
 
@@ -77,6 +88,51 @@ Or directly:
 ```bash
 uv run streamlit run src/sql_diff_ui/app.py
 ```
+
+The app will open in your browser (usually http://localhost:8501).
+
+### Comparison Options
+
+The app provides several configuration options:
+
+1. **SQL Dialect**: Choose the SQL dialect for parsing
+   - Select "tsql" for SQL Server/T-SQL queries
+   - Select "auto" for automatic detection (default)
+   - Other options: postgres, mysql, sqlite, bigquery, snowflake, oracle, redshift
+
+2. **Ignore whitespace**: Ignore whitespace differences in comparison (default: enabled)
+
+3. **Case-insensitive keywords**: Treat SQL keywords as case-insensitive (default: enabled)
+
+4. **Semantic diff enabled**: Enable semantic/structural analysis (default: enabled)
+
+5. **Show line numbers**: Display SQL queries with line numbers (default: enabled)
+
+6. **Show text diff**: Display color-coded text differences (default: enabled)
+
+### Using the Validator
+
+Click the **"✅ Validate SQL"** button (top-right) to:
+- Validate a single SQL query without comparison
+- Check syntax errors before comparing
+- View beautified version of valid queries
+- Test SQL with different dialects
+
+### Viewing Results
+
+Results are organized in tabs:
+- **📋 Difference Notices**: Semantic differences categorized by type
+- **🎨 View Beautified SQL**: Formatted SQL queries side-by-side
+- **📝 SQL with Line Numbers**: Original queries with line numbers
+- **📊 Text Diff**: Color-coded text differences (red for removed, green for added)
+
+### Notifications
+
+The app provides visual feedback:
+- ⚠️ **Yellow toast notification**: Queries don't match (shows difference count)
+- ✅ **Green toast notification**: Queries match perfectly
+- 🚨 **Warning messages**: Validation errors with line numbers
+- 💡 **Dialect hints**: Suggestions when auto-detection fails
 
 ### Running Tests
 
@@ -177,11 +233,16 @@ Uses Python's `difflib` to generate unified diffs with options to:
 ### Supported SQL Dialects
 
 - Auto-detect (default)
+- **T-SQL / SQL Server** (with bracket notation support: `[Column Name]`)
 - PostgreSQL
 - MySQL
 - SQLite
 - BigQuery
 - Snowflake
+- Oracle
+- Redshift
+
+**💡 Tip**: For SQL Server queries with bracket notation like `[Table Name]` or `[Column Name]`, select the "tsql" dialect for proper parsing.
 
 ## Example Notices
 
