@@ -260,6 +260,8 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                 # Store beautified SQL for tabs
                 st.session_state["beautified_a"] = beautified_a
                 st.session_state["beautified_b"] = beautified_b
+                # Clear validation error flag
+                st.session_state["has_validation_errors"] = False
             
             # Show comparison status as toast notification
             if result.notices:
@@ -271,74 +273,22 @@ if st.button("🔍 Compare SQL Queries", type="primary", use_container_width=Tru
                 st.toast("SQL Queries Match! Queries are structurally identical.", icon="✅")
         else:
             st.warning("⚠️ Cannot compare SQL queries with validation errors. Please fix the errors above and try again.")
+            # Set validation error flag and show line numbers view
+            st.session_state["has_validation_errors"] = True
             # Clear previous comparison results
             if "comparison_result" in st.session_state:
                 del st.session_state["comparison_result"]
 
-# Display results if available
-if "comparison_result" in st.session_state:
-    result = st.session_state["comparison_result"]
-    beautified_a = st.session_state.get("beautified_a", "")
-    beautified_b = st.session_state.get("beautified_b", "")
-
+# Display results if available or if there are validation errors
+if "comparison_result" in st.session_state or st.session_state.get("has_validation_errors", False):
     st.markdown("---")
     st.header("📊 Comparison Results")
     
     st.markdown("")  # Add spacing
-
-    # Create tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["📋 Difference Notices", "🎨 View Beautified SQL", "📝 SQL with Line Numbers", "📊 Text Diff"])
     
-    with tab1:
-        # Difference Notices tab
-        if result.parse_error:
-            st.warning(f"⚠️ {result.parse_error}")
-            st.info("Showing text diff only.")
-
-        if result.notices:
-            # Count by severity
-            info_count = sum(1 for n in result.notices if n.severity == Severity.INFO)
-            warn_count = sum(1 for n in result.notices if n.severity == Severity.WARN)
-
-            st.markdown(
-                f"**Breakdown:** {info_count} info, {warn_count} warnings"
-            )
-
-            # Group notices by category
-            categories = {}
-            for notice in result.notices:
-                cat = notice.category.value
-                if cat not in categories:
-                    categories[cat] = []
-                categories[cat].append(notice)
-
-            # Display notices by category
-            for category, notices in sorted(categories.items()):
-                with st.expander(f"**{category}** ({len(notices)} changes)", expanded=True):
-                    for notice in notices:
-                        severity_icon = "⚠️" if notice.severity == Severity.WARN else "ℹ️"
-                        severity_color = "orange" if notice.severity == Severity.WARN else "blue"
-
-                        st.markdown(f":{severity_color}[{severity_icon}] **{notice.summary}**")
-                        if notice.details:
-                            st.caption(notice.details)
-        else:
-            st.success("✅ No differences found. The queries are structurally identical.")
-    
-    with tab2:
-        # Beautified SQL tab
-        beautify_col1, beautify_col2 = st.columns(2)
-
-        with beautify_col1:
-            st.markdown("**Beautified SQL A**")
-            st.code(beautified_a, language="sql")
-
-        with beautify_col2:
-            st.markdown("**Beautified SQL B**")
-            st.code(beautified_b, language="sql")
-    
-    with tab3:
-        # SQL with Line Numbers tab
+    # If validation errors, show only line numbers tab
+    if st.session_state.get("has_validation_errors", False):
+        # SQL with Line Numbers view only when validation errors
         if show_line_numbers:
             view_col1, view_col2 = st.columns(2)
             
@@ -358,16 +308,94 @@ if "comparison_result" in st.session_state:
         else:
             st.info("Enable 'Show line numbers' option to view SQL queries with line numbers.")
     
-    with tab4:
-        # Text Diff tab
-        if show_text_diff and result.text_diff:
-            st.caption("Lines with '-' (red) are removed from SQL A, lines with '+' (green) are added in SQL B")
-            # Show diff without line numbers to preserve color coding
-            st.code(result.text_diff, language="diff")
-        elif not show_text_diff:
-            st.info("Enable 'Show text diff' option to view text differences.")
-        else:
-            st.info("No text differences to display.")
+    # If no validation errors, show full comparison results with tabs
+    elif "comparison_result" in st.session_state:
+        result = st.session_state["comparison_result"]
+        beautified_a = st.session_state.get("beautified_a", "")
+        beautified_b = st.session_state.get("beautified_b", "")
+
+        # Create tabs for different views
+        tab1, tab2, tab3, tab4 = st.tabs(["📋 Difference Notices", "🎨 View Beautified SQL", "📝 SQL with Line Numbers", "📊 Text Diff"])
+        
+        with tab1:
+            # Difference Notices tab
+            if result.parse_error:
+                st.warning(f"⚠️ {result.parse_error}")
+                st.info("Showing text diff only.")
+
+            if result.notices:
+                # Count by severity
+                info_count = sum(1 for n in result.notices if n.severity == Severity.INFO)
+                warn_count = sum(1 for n in result.notices if n.severity == Severity.WARN)
+
+                st.markdown(
+                    f"**Breakdown:** {info_count} info, {warn_count} warnings"
+                )
+
+                # Group notices by category
+                categories = {}
+                for notice in result.notices:
+                    cat = notice.category.value
+                    if cat not in categories:
+                        categories[cat] = []
+                    categories[cat].append(notice)
+
+                # Display notices by category
+                for category, notices in sorted(categories.items()):
+                    with st.expander(f"**{category}** ({len(notices)} changes)", expanded=True):
+                        for notice in notices:
+                            severity_icon = "⚠️" if notice.severity == Severity.WARN else "ℹ️"
+                            severity_color = "orange" if notice.severity == Severity.WARN else "blue"
+
+                            st.markdown(f":{severity_color}[{severity_icon}] **{notice.summary}**")
+                            if notice.details:
+                                st.caption(notice.details)
+            else:
+                st.success("✅ No differences found. The queries are structurally identical.")
+        
+        with tab2:
+            # Beautified SQL tab
+            beautify_col1, beautify_col2 = st.columns(2)
+
+            with beautify_col1:
+                st.markdown("**Beautified SQL A**")
+                st.code(beautified_a, language="sql")
+
+            with beautify_col2:
+                st.markdown("**Beautified SQL B**")
+                st.code(beautified_b, language="sql")
+        
+        with tab3:
+            # SQL with Line Numbers tab
+            if show_line_numbers:
+                view_col1, view_col2 = st.columns(2)
+                
+                with view_col1:
+                    st.markdown("**SQL A with line numbers**")
+                    lines = sql_a.split('\n')
+                    # Filter out completely blank lines but keep lines with whitespace
+                    numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines) if line.strip() or line])
+                    st.code(numbered_sql, language="sql", line_numbers=False)
+                
+                with view_col2:
+                    st.markdown("**SQL B with line numbers**")
+                    lines = sql_b.split('\n')
+                    # Filter out completely blank lines but keep lines with whitespace
+                    numbered_sql = '\n'.join([f"{i+1:4d} | {line}" for i, line in enumerate(lines) if line.strip() or line])
+                    st.code(numbered_sql, language="sql", line_numbers=False)
+            else:
+                st.info("Enable 'Show line numbers' option to view SQL queries with line numbers.")
+        
+        with tab4:
+            # Text Diff tab
+            if show_text_diff and result.text_diff:
+                st.caption("Lines with '-' (red) are removed from SQL A, lines with '+' (green) are added in SQL B")
+                # Show diff without line numbers to preserve color coding
+                st.code(result.text_diff, language="diff")
+            elif not show_text_diff:
+                st.info("Enable 'Show text diff' option to view text differences.")
+            else:
+                st.info("No text differences to display.")
 
 # Footer
 st.markdown("---")

@@ -118,6 +118,21 @@ class SQLValidator:
         """
         errors = []
 
+        # AST-based validation for incomplete queries
+        if isinstance(parsed, sqlglot.exp.Select):
+            # Check for FROM clause with no table
+            from_clause = parsed.find(sqlglot.exp.From)
+            if from_clause and from_clause.this:
+                table = from_clause.this
+                # Check if table has no name (empty table)
+                if isinstance(table, sqlglot.exp.Table):
+                    if not table.name or (hasattr(table, 'sql') and not table.sql().strip()):
+                        errors.append(ValidationError("Empty FROM clause - no table specified"))
+            
+            # Check for SELECT with no expressions (empty SELECT *)
+            if not parsed.expressions or (len(parsed.expressions) == 0):
+                errors.append(ValidationError("Empty SELECT clause - no columns specified"))
+        
         # Check for common SQL issues
         sql_upper = sql.upper()
 
